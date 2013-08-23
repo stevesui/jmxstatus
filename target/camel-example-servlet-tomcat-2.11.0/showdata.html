@@ -1,0 +1,46 @@
+<html>
+<head>
+<title>the title</title>
+<style>
+table,th,td
+{
+border:1px solid black;
+tr:nth-child(even) {background: #CCC}
+tr:nth-child(odd) {background: #FFF}
+}
+</style>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js">
+</script>
+<script>
+   $(document).ready(function() {
+      $("#driver").click(function(event){
+      
+       $.getJSON('http://localhost:8080/camel-example-servlet-tomcat-2.11.0/camel/hello', function(jd) {
+             
+             $('#stage').html('');
+             $('#stage').append('<table>');
+             $('#stage').append('<tr><th>Num</th><th>RoutId</th><th>endURL</th><th> exchange completed</th><th>maxTime</th></tr>');
+             for (var i=0, len=jd.length; i < len; i++) {
+               // console.log(jd[i]);
+               
+                $('#stage').append('<tr><td>'+(i+1)+'</td><td>'+ jd[i].id + '</td><td>'+jd[i].endURL+'</td><td>'+ jd[i].exchangecompleted+ '</td><td>'+jd[i].maxTime+'</td></tr>');
+              
+                
+              }
+   
+             $('#stage').append('</table>');
+          });
+          
+      });
+   });
+   </script>
+</head>
+<body>
+   <p>Click on the button to load result.json file:</p>
+   <div id="stage" style="background-color:white;">
+          STAGE
+   </div>
+   <input type="button" id="driver" value="Load Data" />
+</body>
+</html>
+
