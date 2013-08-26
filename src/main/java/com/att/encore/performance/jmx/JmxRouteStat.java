@@ -90,8 +90,8 @@ public class JmxRouteStat {
 		   //map.put("description", description);
 		   map.put("endURL", endURL);
 		   map.put("state", state);
-		   map.put("maxTime", 860);
-		   //map.put("maxTime", Long.toString(MaxProcessingTime));
+		   //map.put("maxTime", 860);
+		   map.put("maxTime", MaxProcessingTime);
 		   map.put("exchangecompleted",ExchangesCompleted);
 		   
 		   //get the current date and time and save them as the access_time field.
@@ -120,69 +120,68 @@ public class JmxRouteStat {
 			System.exit(-1);
 		}
 	}
+	
+	public void resetJMXParameters() {
+
+		ObjectName objectRouteName = null;
+		
+		
+		 try {
+             
+			 //url = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://172.16.240.118:8999/jmxrmi");
+			 url = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://localhost:8999/jmxrmi");
+             jmxc = JMXConnectorFactory.connect(url);
+             server = jmxc.getMBeanServerConnection();
+            }
+            catch(Exception ex){
+                    System.out.println("Exception caught at JmxRoutStat constructor. Reason :  "+ex.getMessage());
+            } 
+
+		try{
+			
+		
+				ObjectName objName = new ObjectName("org.apache.camel:type=routes,*");
+				List<ObjectName> cacheList = new LinkedList(server.queryNames(objName, null));
+				for (Iterator<ObjectName> iter = cacheList.iterator(); iter.hasNext();)
+				{
+				    objName = iter.next();
+				    String keyProps = objName.getCanonicalKeyPropertyListString();
+				    System.out.println("keyprop value = "+keyProps);
+				    String routeId = (String) server.getAttribute(objName, "RouteId");
+				    if(keyProps.contains(routeId))
+				    {
+				    	
+				         objectRouteName = new ObjectName("org.apache.camel:" + keyProps);
+				    	
+				    	 
+				        Object[] params = {};
+				        String[] sig = {};
+				        
+				        try{
+				        	 server.invoke(objectRouteName, "reset", params, sig);
+				        	 System.out.println("call jmx reset function for Route : "+routeId);
+				        }catch(Exception ex) {
+				        	System.out.println("exception occurred while invoking method reset "+ ex.getMessage());
+				        }
+				        
+				     
+				    }
+				}
+		} catch (Exception ex) {
+			
+			ex.getStackTrace();
+		}
+	
+	}
 
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
+		JmxRouteStat stat = new JmxRouteStat();
+		stat.resetJMXParameters();
 
 	}
-	
-	
-	
-	class JmxData {
-		String routeId;
-		String description;
-		String endPointUri;
-		String state;
-		long maxProcessingTime;
-		long exchangeCompleted;
-		
-		public String getRouteId() {
-			return routeId;
-		}
-		public void setRouteId(String routeId) {
-			this.routeId = routeId;
-		}
-		public String getDescription() {
-			return description;
-		}
-		public void setDescription(String description) {
-			this.description = description;
-		}
-		public String getEndPointUri() {
-			return endPointUri;
-		}
-		public void setEndPointUri(String endPointUri) {
-			this.endPointUri = endPointUri;
-		}
-		public String getState() {
-			return state;
-		}
-		public void setState(String state) {
-			this.state = state;
-		}
-		public long getMaxProcessingTime() {
-			return maxProcessingTime;
-		}
-		public void setMaxProcessingTime(long maxProcessingTime) {
-			this.maxProcessingTime = maxProcessingTime;
-		}
-		public long getExchangeCompleted() {
-			return exchangeCompleted;
-		}
-		public void setExchangeCompleted(long exchangeCompleted) {
-			this.exchangeCompleted = exchangeCompleted;
-		}
-	        public String toString() {
-                 
-                 //String str = " RouteId = "+getRouteId() + " Description " + getDescription()+ " EndPointUri " + getEndPointUri() + " State " + getState() + " MaxProcessingTime " + getMaxProcessingTime()+ " ExchangeCompleted " + getExchangeCompleted();
-                 String str = " RouteId = "+getRouteId() + " EndPointUri " + getEndPointUri() + " State " + getState() + " MaxProcessingTime " + getMaxProcessingTime()+ " ExchangeCompleted " + getExchangeCompleted();
-                 return str;
-                }
-		
-	}
-
 }
 
