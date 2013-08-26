@@ -4,6 +4,8 @@ import java.util.*;
 
 import com.basho.riak.client.IRiakClient;
 import com.basho.riak.client.IRiakObject;
+import com.basho.riak.client.query.functions.JSSourceFunction;
+import com.basho.riak.client.query.indexes.BinIndex;
 import com.basho.riak.client.http.RiakObject;
 import com.basho.riak.client.builders.RiakObjectBuilder;
 import com.basho.riak.client.RiakClient;
@@ -15,10 +17,14 @@ import com.basho.riak.client.cap.Quora;
 import com.basho.riak.client.cap.UnresolvedConflictException;
 import com.basho.riak.client.convert.ConversionException;
 import com.basho.riak.client.operations.StoreObject;
+import com.basho.riak.client.query.MapReduceResult;
 import com.basho.riak.client.raw.RawClient;
 import com.basho.riak.client.raw.config.Configuration;
 import com.basho.riak.client.raw.pbc.PBClientAdapter;
 import com.basho.riak.client.raw.pbc.PBClientConfig;
+import com.basho.riak.client.raw.query.indexes.BinValueQuery;
+import com.basho.riak.client.raw.query.indexes.IndexQuery;
+import com.basho.riak.client.http.mapreduce.JavascriptFunction;
 
 import net.sf.json.*;
 
@@ -164,9 +170,147 @@ public class RiakDump {
 	       
 		}
 	
+	/**
+// curl -X POST \
+//-H "content-type: application/json" \
+//-d @- \
+//http://localhost:8098/mapred \
+//<<EOF
+// {"inputs":{
+//       "bucket":"att.contacts.aab.importContact.0.1",
+//       "index":"2ikeyref_bin",
+//       "key":"att.contacts.aab.importContact.0.1"
+//       },
+//   "query":[
+//      {"map":{"language":"javascript",
+//            "source":"function(value, keyData, arg) 	
+//            { 
+//                return [[value.bucket,value.key]];
+//            }",
+//            "keep":false}
+//      }
+//     ,
+//      {"map":{"language":"javascript",
+//           "source":"function(value, keyData, arg)
+//           { 
+//               var data = Riak.mapValuesJson(value)[0];
+//               var obj = {};
+//               obj[value.key] = data.maxTime;
+//               return [obj];
+//            }",
+//           "keep":false}
+//     }
+//  ,
+//     {"reduce":{"language":"javascript",
+//           "source":"function(values)
+//           { 
+//               if(values.length == 0)
+//        return [];
+//      else
+//        return [values.reduce(function(prev,next){
+//          return (prev > next) ? prev : next;
+//        })];
+//            }",
+//           "keep":true}}
+//  ]
+//}
+//EOF
+	 
+	 */
+	
+	/**
+	 * Set mapreduce result into exchange out body.
+	 * 
+	 * @param exchange
+	 */
+	public void doMapReduce(Exchange exchange) {
+		String result = this.doMapReduce("");
+		exchange.getOut().setBody(result);
+		
+	}
+	
+	/**
+	 * Generic mapreduce method with parameter as String value.
+	 * @param input
+	 * @return
+	 */
+	public String doMapReduce(String input) {
+		
+		String IndexfunctionSource = new StringBuilder()
+				.append("function(value, keyData, arg){return [[value.bucket,value.key]];}").toString();
+		
+		String RetrieveMaxProcessorFunctionSource = new StringBuilder()
+				.append("function(value, keyData, arg)")
+				.append("{var data = Riak.mapValuesJson(value)[0]; var obj = {};obj[value.key] = data.maxTime; return [obj];}").toString();
+				 
+	   String  RetrieveMaxProcessorReduceFunctionSource = new StringBuilder()
+	           .append("function(values)")
+	           .append("{if(values.length == 0) return [];")
+	           .append(" else return [values.reduce(function(prev,next){ return (prev > next) ? prev : next; })]; }").toString();
+				
+		
+		String bucket="att.contacts.aab.importContact.0.1";
+		String indexName ="2ikeyref_bin";
+		String indexValue ="att.contacts.aab.importContact.0.1";
+		
+		MapReduceResult result = null;
+		
+		IndexQuery iq = new BinValueQuery(BinIndex.named(indexName),
+				bucket, indexValue);
+		try{
+		     result = riakClient.mapReduce(iq)
+		                                .addMapPhase(new JSSourceFunction(IndexfunctionSource))
+		                                .addMapPhase(new JSSourceFunction(RetrieveMaxProcessorFunctionSource))
+		                                .addReducePhase(new JSSourceFunction(RetrieveMaxProcessorReduceFunctionSource))
+		                                .execute();
+		}
+		catch(Exception ex) {
+			ex.printStackTrace();
+		}
+		
+		return result.getResultRaw();
+	}
 		
 
-	
+	public void test2iIndexStore() {
+		// TODO Auto-generated method stub
+				// Protocol Buffer Client
+				IRiakClient pbClient;
+				PBClientAdapter pbClientAdapter;
+				IRiakClient riakClient;
+				try {
+		        	// Initialize Protocol Buffer Client
+
+		        	pbClient = RiakFactory.pbcClient("127.0.0.1",8098);
+		            //pbClient.ping();
+					pbClientAdapter = new PBClientAdapter("127.0.0.1",8098);
+					
+					riakClient = RiakFactory.httpClient();
+		            
+
+					  for (int i = 0; i < 5; i++)
+					  {
+					
+						 IRiakObject riakObject = RiakObjectBuilder.newBuilder("2iTest","key_on_key-"+i).
+				            		withValue("{\"name\":\"steve\"}".getBytes()).withContentType("application/json").addIndex("anotherlook", "knowledgeworker").build();
+						 System.out.println("RiakObject = "+riakObject);
+						 System.out.println("RiakObject bucket = "+riakObject.getBucket());
+						 System.out.println("RiakObject contenttype = "+riakObject.getContentType());
+						 System.out.println("RiakObject key = "+riakObject.getKey());
+						 System.out.println("RiakObject value = "+riakObject.getValue());
+						 
+						 riakClient.fetchBucket("2iTest").execute().store(riakObject).execute();
+						 //pbClientAdapter.store(riakObject);
+						 
+							System.out.println("Finished...");
+					  }
+					 
+		        } catch(Exception ex) {
+		            System.out.println("exception: "+ex.getMessage());
+		            ex.printStackTrace();
+		          
+		        }
+	}
 
 	/**
 	 * @param args
@@ -175,6 +319,12 @@ public class RiakDump {
 	 * @throws RiakRetryFailedException 
 	 */
 	public static void main(String[] args) throws RiakRetryFailedException, UnresolvedConflictException, ConversionException {
+		
+		RiakDump dump = new RiakDump();
+		dump.init();
+		String result = dump.doMapReduce("");
+		System.out.println(result);
+		/*
 		// TODO Auto-generated method stub
 		// Protocol Buffer Client
 		IRiakClient pbClient;
@@ -212,7 +362,7 @@ public class RiakDump {
             ex.printStackTrace();
           
         }
-		
+		*/
 		/*
 		IRiakClient pbClient;
 		RawClient raw_client;
