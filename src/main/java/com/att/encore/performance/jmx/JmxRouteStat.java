@@ -45,6 +45,48 @@ public class JmxRouteStat {
                 } 
 
         }
+    public  List<String> getAllRoutesAsList() {
+    	
+    	JMXServiceURL url = null;
+    	JMXConnector jmxc = null;
+    	MBeanServerConnection server = null;
+    	List<String>  jmxList = new ArrayList<String>();
+    	
+    	try {
+            url = new JMXServiceURL(jmxUrl);
+            jmxc = JMXConnectorFactory.connect(url);
+            server = jmxc.getMBeanServerConnection();
+       }
+       catch(Exception ex){
+               System.out.println("Exception caught at JmxRoutStat constructor. Reason :  "+ex.getMessage());
+       } 
+    	
+    	try {
+		
+			//make JMX requests.
+			ObjectName objName = new ObjectName("org.apache.camel:type=routes,*");
+			List<ObjectName> cacheList = new LinkedList(server.queryNames(objName, null));
+			
+			for (Iterator<ObjectName> iter = cacheList.iterator(); iter.hasNext();)
+			{
+			    objName = iter.next();
+			    String keyProps = objName.getCanonicalKeyPropertyListString();
+			
+			    ObjectName objectInfoName = new ObjectName("org.apache.camel:" + keyProps);
+			    String routeId = (String) server.getAttribute(objectInfoName, "RouteId");
+			   
+			   //save routeId into the list.
+	           jmxList.add(routeId);
+			   
+			} //for loop
+		}
+		catch(Exception ex)
+		{
+			System.out.println("JMX exception caught. "+ ex);
+			System.exit(-1);
+		}
+		return jmxList;
+    }
 	
     // Make Camel routes JMX query and loop through all elements returned.
 	public void doJmxJob(Exchange xchange){
